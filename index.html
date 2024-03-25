@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>In Vitro Microsomes Drug Metabolic Rate Calculator</title>
+    <style>
+        /* CSS styles for the calculator */
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background-color: #f7f7f7;
+        }
+
+        .container {
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 28px;
+        }
+
+        label {
+            font-size: 24px;
+        }
+
+        input[type="number"] {
+            font-size: 24px;
+            padding: 8px;
+        }
+
+        table {
+            margin: 0 auto;
+            border-collapse: collapse;
+            font-size: 24px;
+        }
+
+        th, td {
+            padding: 8px;
+            text-align: center;
+        }
+
+        button {
+            font-size: 24px;
+            padding: 10px 20px;
+            margin: 10px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .add-concentration-btn {
+            background-color: #4CAF50; /* Green */
+            color: white;
+        }
+
+        .calculate-btn {
+            background-color: #4CAF50; /* Green */
+            color: white;
+        }
+
+        #result {
+            font-size: 28px;
+            margin-top: 20px;
+        }
+
+        .km-vmax {
+            color: red;
+            font-weight: bold;
+        }
+
+        .concentration-labels {
+            font-size: 24px;
+            font-weight: bold;
+        }
+    </style>
+    <script type="text/javascript">
+        function addRow() {
+            var table = document.getElementById("concentrationTable");
+            var newRow = table.insertRow();
+            var substrateCell = newRow.insertCell();
+            var metaboliteCell = newRow.insertCell();
+
+            substrateCell.innerHTML = '<input type="number" step="any">';
+            metaboliteCell.innerHTML = '<input type="number" step="any">';
+        }
+
+        function calculate() {
+            var enzymeConcentration = parseFloat(document.getElementById("enzymeConcentration").value);
+            var incubationTime = parseFloat(document.getElementById("incubationTime").value);
+            var metaboliteUnit = document.getElementById("metaboliteUnit").value;
+
+            var table = document.getElementById("concentrationTable");
+            var rows = table.getElementsByTagName("tr");
+
+            var resultContainer = document.getElementById("result");
+            resultContainer.innerHTML = ""; // Clear previous results
+
+            var substrateConcentrations = [];
+            var metabolicRates = [];
+
+            for (var i = 1; i < rows.length; i++) {
+                var substrateConcentration = parseFloat(rows[i].cells[0].getElementsByTagName("input")[0].value);
+                var metaboliteConcentration = parseFloat(rows[i].cells[1].getElementsByTagName("input")[0].value);
+
+                if (!isNaN(substrateConcentration) && !isNaN(metaboliteConcentration)) {
+                    var metabolicRate = (metaboliteConcentration) / (incubationTime * enzymeConcentration);
+                    var metabolicRateUnit = "nmol/min/mg protein"; // Default unit
+
+                    if (metaboliteUnit === "micromol") {
+                        metabolicRate *= 1000; // Convert to nM
+                    }
+
+                    var roundedMetabolicRate = metabolicRate.toFixed(2);
+
+                    var result = document.createElement("div");
+                    result.className = "metabolic-rate";
+
+                    var concentrationPair = document.createElement("div");
+                    concentrationPair.className = "concentration-pair";
+
+                    var substrateElement = document.createElement("div");
+                    substrateElement.innerHTML = "Substrate Concentration: " + substrateConcentration;
+
+                    var metaboliteElement = document.createElement("div");
+                    metaboliteElement.innerHTML = "Metabolite Concentration: " + metaboliteConcentration + " " + metaboliteUnit;
+
+                    concentrationPair.appendChild(substrateElement);
+                    concentrationPair.appendChild(metaboliteElement);
+
+                    result.appendChild(concentrationPair);
+
+                    var metabolicRateElement = document.createElement("div");
+                    metabolicRateElement.innerHTML = "Metabolic Rate: " + roundedMetabolicRate + " " + metabolicRateUnit;
+
+                    result.appendChild(metabolicRateElement);
+
+                    resultContainer.appendChild(result);
+
+                    substrateConcentrations.push(substrateConcentration);
+                    metabolicRates.push(metabolicRate);
+                }
+            }
+
+            // Calculate Km and Vmax using Michaelis-Menten equation
+            if (substrateConcentrations.length > 0 && metabolicRates.length > 0) {
+                var [km, vmax] = calculateKmVmax(substrateConcentrations, metabolicRates);
+
+                // Display Km and Vmax
+                var kmVmaxContainer = document.createElement
+("div");
+                kmVmaxContainer.className = "km-vmax";
+                kmVmaxContainer.innerHTML = `Km: <span style="color: red; font-weight: bold;">${km.toFixed(2)} ${metaboliteUnit}</span>, Vmax: <span style="color: red; font-weight: bold;">${vmax.toFixed(2)} ${metabolicRateUnit}</span>`;
+                resultContainer.appendChild(kmVmaxContainer);
+            }
+        }
+
+        function calculateKmVmax(substrateConcentrations, metabolicRates) {
+            // Use linear regression to find the Km and Vmax
+            // Michaelis-Menten equation: v = Vmax * [S] / (Km + [S])
+            // Rearranged to linear form: 1/v = (Km/Vmax) * (1/[S]) + 1/Vmax
+
+            var n = substrateConcentrations.length;
+            var sumXY = 0, sumX2 = 0, sumX = 0, sumY = 0;
+
+            for (var i = 0; i < n; i++) {
+                var x = 1 / substrateConcentrations[i];
+                var y = 1 / metabolicRates[i];
+                sumXY += x * y;
+                sumX2 += x * x;
+                sumX += x;
+                sumY += y;
+            }
+
+            var denominator = n * sumX2 - sumX * sumX;
+            var km = (sumXY * n - sumX * sumY) / denominator;
+            var vmax = 1 / (sumY / n - km * sumX / n);
+
+            return [km, vmax];
+        }
+    </script>
+</head>
+<body>
+    <div class="container">
+        <h1>In Vitro Drug Metabolic Rate Calculator (Michaelis–Menten) </h1>
+
+        <label for="enzymeConcentration">Enzyme Concentration (mg protein/mL):</label>
+        <input type="number" id="enzymeConcentration" step="any" style="font-size: 24px;" required><br><br>
+
+        <label for="incubationTime">Incubation Time (min):</label>
+        <input type="number" id="incubationTime" step="any" style="font-size: 24px;" required><br><br>
+
+        <table id="concentrationTable">
+            <tr>
+                <th class="concentration-labels">Substrate Concentration</th>
+                <th class="concentration-labels">Metabolite Concentration</th>
+            </tr>
+            <tr>
+                <td><input type="number" step="any" style="font-size: 24px;"></td>
+                <td><input type="number" step="any" style="font-size: 24px;"></td>
+            </tr>
+        </table>
+
+        <button class="add-concentration-btn" onclick="addRow()">Add Concentration</button><br><br>
+
+        <label for="metaboliteUnit">Metabolite Concentration Unit:</label>
+        <select id="metaboliteUnit" style="font-size: 24px;">
+            <option value="micromol">umol/mL</option>
+            <option value="nM">nmol/mL</option>
+        </select><br><br>
+
+        <button class="calculate-btn" onclick="calculate()">Calculate</button><br><br>
+
+        <div id="result"></div>
+    </div>
+</body>
+</html>
